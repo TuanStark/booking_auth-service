@@ -27,12 +27,12 @@ model Role {
 
 model User {
   id        String   @id @default(uuid())
-  name      String   @map("name")
+  name      String?   @map("name")
   email     String   @unique
   password String
-  gender   String
-  dateOfBirth DateTime
-  avatar    String  
+  gender   String?
+  dateOfBirth DateTime?
+  avatar    String?  
   roleId        String   @map("role_id")   
   role          Role     @relation("UserRole", fields: [roleId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")

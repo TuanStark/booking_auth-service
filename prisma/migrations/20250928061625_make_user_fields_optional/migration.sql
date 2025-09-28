@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "public"."users" ALTER COLUMN "name" DROP NOT NULL,
+ALTER COLUMN "gender" DROP NOT NULL,
+ALTER COLUMN "dateOfBirth" DROP NOT NULL,
+ALTER COLUMN "avatar" DROP NOT NULL;

@@ -42,6 +42,9 @@ $ npm run start:dev
 
 # production mode
 $ npm run start:prod
+
+# run seed data
+$ npx prisma db seed
 ```
 
 ## Run tests
