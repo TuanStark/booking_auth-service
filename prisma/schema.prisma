@@ -32,11 +32,28 @@ model User {
   password String
   gender   String?
   dateOfBirth DateTime?
-  avatar    String?  
+  avatar    String?
+  provider     String?          // 'google' | 'local' ...
+  providerId   String?          // id từ provider (Google sub)
+  emailVerified Boolean @default(false)
+   refreshTokens RefreshToken[]  
   roleId        String   @map("role_id")   
   role          Role     @relation("UserRole", fields: [roleId], references: [id])
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  tokenHash  String   // store hashed refresh token
+  userAgent  String?  // optional: device info
+  ip         String?  
+  revoked    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  expiresAt  DateTime
 }
