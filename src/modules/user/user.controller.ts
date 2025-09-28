@@ -48,7 +48,7 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Get(':id')
-  async findOne(@Param('id') id: number) {
+  async findOne(@Param('id') id: string) {
     try {
       const user = await this.userService.findOne(id);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
@@ -68,7 +68,7 @@ export class UserController {
       cb(null, true);
     },
   })) 
-  async update(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file: Express.Multer.File) {
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file: Express.Multer.File) {
     try {
       const user = await this.userService.update(id, updateUserDto, file);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
@@ -79,7 +79,7 @@ export class UserController {
 
   @UseGuards(JwtAuthGuard)
   @Patch('delete/:id')
-  async remove(@Param('id') id: number, @Body() updateUserDto: UpdateUserDto) {
+  async remove(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     try {
       const user = await this.userService.remove(id, updateUserDto);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);

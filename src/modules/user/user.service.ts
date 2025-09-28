@@ -85,22 +85,7 @@ export class UserService {
     };
   }
 
-  async findOne(id: number) {
-    return this.prisma.user.findUnique({
-      where: { id },
-      include: {
-        role: true,
-        examAttempts: true,
-        userLearningPaths: true,
-        blogPosts: true,
-        blogComments: true,
-        vocabularyProgress: true,
-        grammarProgress: true,
-      }
-    });
-  }
-
-  async findOneForAuthentication(id: number) {
+  async findOne(id: string) {
     return this.prisma.user.findUnique({
       where: { id },
       include: {
@@ -109,7 +94,16 @@ export class UserService {
     });
   }
 
-  async update(id: number, updateUserDto: UpdateUserDto, file: Express.Multer.File) {
+  async findOneForAuthentication(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: true,
+      }
+    });
+  }
+
+  async update(id: string, updateUserDto: UpdateUserDto, file: Express.Multer.File) {
     const existingUser = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -145,7 +139,7 @@ export class UserService {
     }
   }
 
-  async remove(id: number, updateUserDto: UpdateUserDto) {
+  async remove(id: string, updateUserDto: UpdateUserDto) {
     const existingUser = await this.prisma.user.findUnique({
       where: { id },
     });

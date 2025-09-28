@@ -1,21 +1,12 @@
-import * as bcrypt from 'bcrypt';
+import * as argon2 from 'argon2';
 
-/**
- * Hash password với salt
- * @param password - mật khẩu gốc
- * @param saltOrRounds - số vòng salt (default 10)
- * @returns mật khẩu đã hash
- */
-export async function hashPassword(password: string, saltOrRounds = 10): Promise<string> {
-  return bcrypt.hash(password, saltOrRounds);
+export async function hashPassword(password: string) {
+  return argon2.hash(password);
+}
+export async function comparePassword(password: string, hash: string): Promise<boolean> {
+  return argon2.verify(hash, password);
 }
 
-/**
- * So sánh mật khẩu gốc với mật khẩu đã hash
- * @param password - mật khẩu gốc user nhập
- * @param hashedPassword - mật khẩu đã hash trong DB
- * @returns true nếu đúng, false nếu sai
- */
-export async function comparePassword(password: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword);
+export async function verifyPassword(hash: string, plain: string) {
+  return argon2.verify(hash, plain);
 }

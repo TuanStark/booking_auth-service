@@ -8,21 +8,31 @@ import {
   Get,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDTO, LoginDTO } from './dto';
 import { ResponseData } from '../../common/global/globalClass';
 import { HttpStatus, HttpMessage } from '../../common/global/globalEnum';
 import { LocalAuthGuard } from './guard';
+import { AuthGuard } from '@nestjs/passport';
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.COOKIE_SAME_SITE || 'lax',
+  path: '/',
+  maxAge: Number(process.env.REFRESH_EXPIRE_DAYS || 7) * 24 * 3600 * 1000,
+};
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-  ) {}
+  ) { }
 
   @Post('register')
-  async register(@Req() request: Request,@Body() createAuthDto: AuthDTO) {
+  async register(@Req() request: Request, @Body() createAuthDto: AuthDTO) {
     try {
       const user = await this.authService.register(createAuthDto);
       return new ResponseData(user, HttpStatus.CREATED, HttpMessage.CREATED);
@@ -72,9 +82,9 @@ export class AuthController {
   }
 
   @Post('check-code')
-  async checkCode(@Body() body: { codeId: string, id: string } ) {
+  async checkCode(@Body() body: { codeId: string, id: string }) {
     try {
-      const user = await this.authService.handleActive(body.codeId, +body.id);
+      const user = await this.authService.handleActive(body.codeId, body.id);
       return new ResponseData(user, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
     } catch (error) {
       return new ResponseData(
@@ -88,7 +98,7 @@ export class AuthController {
   @Post('resend-code')
   async resendCode(@Body() body: { id: string, email: string }) {
     try {
-      const result = await this.authService.resendVerificationCode(+body.id, body.email);
+      const result = await this.authService.resendVerificationCode(body.id, body.email);
       return new ResponseData(result, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
     } catch (error) {
       if (error.message.includes('User not found')) {
@@ -113,75 +123,58 @@ export class AuthController {
     }
   }
 
-    @UseGuards(LocalAuthGuard)
-    @Post('login')
-    async login(@Req() req: any) {
-      try {
-        // LocalAuthGuard đã validate user, user info có trong req.user
-        const user = req.user;
-        const response = await this.authService.login(user);
-        
-        return new ResponseData(response, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
-      } catch (error) {
-        return new ResponseData(
-          null,
-          HttpStatus.UNAUTHORIZED,
-          HttpMessage.INVALID_CREDENTIALS
-        );
-      }
-    }
-
-  @Post('refresh')
-  @HttpCode(NestHttpStatus.OK)
-  async refreshTokens(@Body() body: { refreshToken: string }) {
+  @UseGuards(LocalAuthGuard)
+  @Post('login')
+  async login(@Req() req: any) {
     try {
-      const tokens = await this.authService.refreshTokens(body.refreshToken);
-      return new ResponseData(tokens, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
-    } catch (error) {
-      if (error instanceof ForbiddenException) {
-        if (error.message.includes('Invalid refresh token')) {
-          return new ResponseData(
-            null,
-            HttpStatus.UNAUTHORIZED,
-            HttpMessage.REFRESH_TOKEN_INVALID,
-          );
-        }
-        if (error.message.includes('Access denied')) {
-          return new ResponseData(
-            null,
-            HttpStatus.FORBIDDEN,
-            HttpMessage.ACCESS_DENIED,
-          );
-        }
-        return new ResponseData(
-          null,
-          HttpStatus.FORBIDDEN,
-          HttpMessage.ACCESS_DENIED,
-        );
-      }
+      // LocalAuthGuard đã validate user, user info có trong req.user
+      const user = req.user;
+      const response = await this.authService.login(user);
 
+      return new ResponseData(response, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
+    } catch (error) {
       return new ResponseData(
-        error,
-        HttpStatus.SERVER_ERROR,
-        HttpMessage.SERVER_ERROR,
+        null,
+        HttpStatus.UNAUTHORIZED,
+        HttpMessage.INVALID_CREDENTIALS
       );
     }
   }
 
-  // @Post('google')
-  // async loginGoogle(@Body() dto: { email: string; name: string; googleId: string }) {
-  //   try {
-  //     return new ResponseData(
-  //       await this.authService.loginGoogle(dto),
-  //       HttpStatus.SUCCESS,
-  //       HttpMessage.SUCCESS,
-  //     );
-  //   } catch (error) {
-  //     return new ResponseData(
-  //       error,
-  //       HttpStatus.SERVER_ERROR,
-  //       HttpMessage.SERVER_ERROR,
-  //     );
-  //   }
-  // }
+  @Post('refresh')
+  async refresh(@Req() req, @Res() res) {
+    const refreshToken = req.cookies?.refresh_token;
+    if (!refreshToken) return res.status(401).json({ message: 'No refresh token' });
+
+    const { accessToken, refreshToken: newRefresh } = await this.authService.refresh(refreshToken, req.ip, req.headers['user-agent']);
+    res.cookie('refresh_token', newRefresh, cookieOptions);
+    return res.json({ accessToken });
+  }
+
+   @Post('logout')
+  async logout(@Req() req, @Res() res) {
+    const refresh = req.cookies?.refresh_token;
+    if (refresh) await this.authService.revokeRefreshToken(refresh);
+    res.clearCookie('refresh_token', cookieOptions);
+    return res.json({ ok: true });
+  }
+
+  // Google OAuth routes
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  async googleLogin() {
+    // redirect handled by passport
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthRedirect(@Req() req, @Res() res) {
+    // validateOAuthUser returns a User object, now create session
+    const user = req.user;
+    const { accessToken, refreshToken } = await this.authService.createSessionForUser(user, req.ip, req.headers['user-agent']);
+    res.cookie('refresh_token', refreshToken, cookieOptions);
+    // redirect to frontend with access token (or set cookie and redirect)
+    const redirect = process.env.FRONTEND_URL || 'http://localhost:3000';
+    return res.redirect(`${redirect}/auth/success?accessToken=${accessToken}`);
+  }
 }

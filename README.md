@@ -29,6 +29,13 @@
 
 ```bash
 $ npm install
+
+# Tạo private key (RSA 2048-bit)
+$ openssl genrsa -out private.pem 2048
+
+# Tạo public key từ private key
+$ openssl rsa -in private.pem -pubout -out public.pem
+
 ```
 
 ## Compile and run the project
