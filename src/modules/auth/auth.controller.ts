@@ -123,16 +123,13 @@ export class AuthController {
     }
   }
 
-  @UseGuards(LocalAuthGuard)
   @Post('login')
-  async login(@Req() req: any) {
+  async login(@Body() loginDto: { email: string; password: string }) {
     try {
-      // LocalAuthGuard đã validate user, user info có trong req.user
-      const user = req.user;
-      const response = await this.authService.login(user);
-
+      const response = await this.authService.login(loginDto);
       return new ResponseData(response, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
     } catch (error) {
+      console.error('Login error:', error);
       return new ResponseData(
         null,
         HttpStatus.UNAUTHORIZED,

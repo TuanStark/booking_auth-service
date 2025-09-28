@@ -165,6 +165,9 @@ export class UserService {
       where: {
         email,
       },
+      include: {
+        role: true
+      }
     });
   }
 }

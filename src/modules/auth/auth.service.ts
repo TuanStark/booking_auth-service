@@ -1,14 +1,12 @@
 import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { AuthDTO } from './dto';
-import * as argon from 'argon2';
+import { hashPassword, comparePassword } from '../../shared/utils/argon2.util';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from 'src/modules/user/user.service';
 import { CurrentUser } from './types/current-user';
 import { MailerService } from '@nestjs-modules/mailer';
-import { hashPassword, verifyPassword } from '../../shared/utils/bcrypt.util';
-// import * as dayjs from 'dayjs';
 import dayjs from 'dayjs';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
@@ -34,7 +32,7 @@ export class AuthService {
       throw new ForbiddenException('Email already in use');
     }
 
-    const hash = await argon.hash(password);
+    const hash = await hashPassword(password);
     const codeId = uuidv4();
 ;    // Tạo user
     try {
@@ -68,34 +66,60 @@ export class AuthService {
 
   // Local login
   async login(dto: { email: string; password: string }) {
-    const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    if (!user || !user.password) throw new UnauthorizedException('Invalid credentials');
-    if (user.status !== 'active') throw new ForbiddenException('Account not active');
+    const user = await this.prisma.user.findUnique({ 
+      where: { email: dto.email },
+      include: { role: true } // Thêm include role để lấy thông tin role
+    });
+    
+    if (!user || !user.password) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    
+    if (user.status !== 'active') {
+      throw new ForbiddenException('Account not active');
+    }
 
-    const ok = await verifyPassword(user.password, dto.password);
-    if (!ok) throw new UnauthorizedException('Invalid credentials');
+    const ok = await comparePassword(dto.password, user.password);
+    
+    if (!ok) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
 
-    const role = await this.prisma.role.findUnique({ where: { id: user.roleId }});
     const session = await this.createSessionForUser(user, null, null);
-    return { user: { id: user.id, email: user.email, name: user.name, role: role?.name }, ...session };
+    return { 
+      user: {
+        id: user.id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role?.name || 'user' // Sử dụng optional chaining và có giá trị mặc định
+      }, 
+      ...session 
+    };
   }
 
   async validateUser(email: string, password: string) {
     try {
+      console.log('Validating user:', email);
       const user = await this.userService.findByEmail(email);
+      
       if (!user) {
-        console.log('User not found:', email);
+        console.log('User not found in database');
         return null;
       }
 
-      const isPasswordValid = await argon.verify(user.password, password);
+      console.log('User found, comparing password...');
+      const isPasswordValid = await comparePassword(password, user.password);
+      console.log('Password validation result:', isPasswordValid);
+      
       if (!isPasswordValid) {
+        console.log('Password validation failed');
         return null;
       }
       
+      console.log('User validated successfully');
       // Return user without password
       const { password: _, ...result } = user;
-      return user;
+      return result;
     } catch (error) {
       console.error('Error validating user:', error);
       return null;
@@ -232,7 +256,8 @@ export class AuthService {
 
   // create session => access + refresh tokens; store hashed refresh token
   async createSessionForUser(user: any, ip: string | null, userAgent: string | null) {
-    const payload = { sub: user.id, email: user.email, role: user.roleId };
+    const role = await this.prisma.role.findUnique({ where: { id: user.roleId } });
+    const payload = { sub: user.id, email: user.email, role: role?.name };
 
     // access token (short lived)
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -255,7 +280,11 @@ export class AuthService {
       },
     });
 
-    return { accessToken, refreshToken: refreshRaw, expiresAt };
+    return { 
+      accessToken, 
+      refreshToken: refreshRaw, 
+      expiresAt 
+    };
   }
 
   // refresh rotation
