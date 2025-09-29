@@ -1,12 +1,10 @@
 import { PrismaClient } from "@prisma/client";
-// import { hashPassword } from "src/shared/utils/bcrypt.util";
-import { hashPassword } from "../src/shared/utils/bcrypt.util";
+import { hashPassword } from "../src/shared/utils/argon2.util";
 
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Insert roles
   const roles = await prisma.role.createMany({
     data: [
       { id: "b86dd951-4a46-4295-97f1-82015d02f672", name: "ADMIN" },
