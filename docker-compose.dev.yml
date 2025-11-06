@@ -1,0 +1,31 @@
+version: '3.9'
+
+services:
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auth-service-dev
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_TTL: ${REDIS_TTL}
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      RABBITMQ_QUEUE: ${RABBITMQ_QUEUE}
+      NODE_ENV: development
+    volumes:
+      - ./src:/app/src
+      - ./prisma:/app/prisma
+      - ./node_modules:/app/node_modules
+    command: npm run start:dev
+    networks:
+      my_custom_network:
+        ip4_address: ${APP_IP}
+
+networks:
+  my_custom_network:
+    external: true

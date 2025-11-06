@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  users       User[]   @relation("UserRole")
+
+  @@map("roles")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String?   @map("name")
+  email     String   @unique
+  password String
+  gender   String?
+  dateOfBirth DateTime?
+  avatar    String?
+  provider     String?          // 'google' | 'local' ...
+  providerId   String?          // id từ provider (Google sub)
+  emailVerified Boolean @default(false)
+  status        String    @default("active")
+  codeId        String?
+  codeExpired   DateTime?
+  refreshTokens RefreshToken[]  
+  roleId        String   @map("role_id")   
+  role          Role     @relation("UserRole", fields: [roleId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  tokenHash  String   @unique// store hashed refresh token
+  userAgent  String?  // optional: device info
+  ip         String?  
+  revoked    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  expiresAt  DateTime
+
+  @@map("refresh_token")
+}
