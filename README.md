@@ -1,108 +1,353 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🔐 Auth Service
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Service xác thực và quản lý người dùng cho hệ thống Dorm Booking System. Service này xử lý đăng ký, đăng nhập, xác thực JWT, OAuth Google, và quản lý refresh tokens.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 🚀 Tính năng
 
-## Description
+### **Authentication & Authorization**
+- ✅ Đăng ký người dùng mới với email verification
+- ✅ Đăng nhập với email/password
+- ✅ JWT authentication với RS256 (RSA keys)
+- ✅ Refresh token rotation
+- ✅ OAuth Google integration
+- ✅ Email verification code
+- ✅ Resend verification code
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+### **Security**
+- ✅ Password hashing với Argon2
+- ✅ RSA key pair cho JWT signing/verification
+- ✅ Refresh token rotation và revocation
+- ✅ Rate limiting (có thể cấu hình)
+- ✅ Secure cookie handling
 
-## Project setup
+### **Integration**
+- ✅ RabbitMQ event publishing (user.created)
+- ✅ Redis caching
+- ✅ Email service integration (verification codes)
+- ✅ Cloudinary integration (avatar upload)
+
+## 📁 Cấu trúc thư mục
+
+```
+src/
+├── modules/
+│   ├── auth/              # Authentication module
+│   │   ├── dto/          # Data Transfer Objects
+│   │   ├── guard/        # Auth guards
+│   │   ├── strategy/     # Passport strategies (JWT, Local, Google)
+│   │   ├── config/       # JWT configuration
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   └── auth.module.ts
+│   └── user/             # User management module
+│       ├── user.service.ts
+│       └── user.module.ts
+├── messaging/
+│   ├── rabbitmq/         # RabbitMQ integration
+│   └── redis/            # Redis integration
+├── prisma/
+│   ├── schema.prisma     # Database schema
+│   └── seed.ts           # Database seeding
+├── common/               # Shared utilities
+├── config/               # Configuration files
+└── main.ts
+```
+
+## ⚙️ Cấu hình
+
+### **Environment Variables**
+
+Tạo file `.env` trong thư mục root:
+
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/auth_db"
+
+# JWT Configuration
+JWT_PRIVATE_KEY_PATH=./keys/private.pem
+JWT_PUBLIC_KEY_PATH=./keys/public.pem
+JWT_ACCESS_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Application
+PORT=4000
+NODE_ENV=development
+
+# Frontend URL (for OAuth redirects)
+FRONTEND_URL=http://localhost:3000
+
+# Cookie Settings
+COOKIE_SAME_SITE=lax
+REFRESH_EXPIRE_DAYS=7
+
+# RabbitMQ
+RABBITMQ_URL=amqp://localhost:5672
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# Email (for verification codes)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USER=your-email@gmail.com
+MAIL_PASS=your-app-password
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+
+# Cloudinary (for avatar upload)
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+```
+
+### **Tạo RSA Keys**
 
 ```bash
-$ npm install
+# Tạo thư mục keys
+mkdir -p keys
 
 # Tạo private key (RSA 2048-bit)
-$ openssl genrsa -out private.pem 2048
+openssl genrsa -out keys/private.pem 2048
 
 # Tạo public key từ private key
-$ openssl rsa -in private.pem -pubout -out public.pem
-
+openssl rsa -in keys/private.pem -pubout -out keys/public.pem
 ```
 
-## Compile and run the project
+**⚠️ Lưu ý**: 
+- `private.pem` không được commit vào git
+- `public.pem` có thể được chia sẻ với API Gateway để verify tokens
+
+## 🚀 Cài đặt và chạy
+
+### **Yêu cầu**
+- Node.js 18+
+- PostgreSQL
+- RabbitMQ (optional)
+- Redis (optional)
+
+### **Cài đặt**
 
 ```bash
-# development
-$ npm run start
+# Cài đặt dependencies
+npm install
 
-# watch mode
-$ npm run start:dev
+# Tạo file .env từ .env.example (nếu có)
+cp .env.example .env
 
-# production mode
-$ npm run start:prod
+# Chỉnh sửa .env với thông tin của bạn
 
-# run seed data
-$ npx prisma db seed
+# Chạy database migrations
+npx prisma migrate dev
+
+# Generate Prisma Client
+npx prisma generate
+
+# Seed database (optional)
+npx prisma db seed
 ```
 
-## Run tests
+### **Chạy development**
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### **Build và chạy production**
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Build
+npm run build
+
+# Chạy production
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## 📡 API Endpoints
 
-## Resources
+### **Authentication**
 
-Check out a few resources that may come in handy when working with NestJS:
+#### `POST /auth/register`
+Đăng ký người dùng mới
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "User Name"
+}
+```
 
-## Support
+**Response:**
+```json
+{
+  "data": {
+    "id": "uuid",
+    "email": "user@example.com",
+    "name": "User Name",
+    "status": "unactive",
+    "codeId": "verification-code-id"
+  },
+  "statusCode": 201,
+  "message": "Created"
+}
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+#### `POST /auth/login`
+Đăng nhập
 
-## Stay in touch
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "password123"
+}
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**Response:**
+```json
+{
+  "data": {
+    "accessToken": "jwt-access-token",
+    "refreshToken": "refresh-token",
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "name": "User Name"
+    }
+  },
+  "statusCode": 200,
+  "message": "Success"
+}
+```
 
-## License
+#### `POST /auth/refresh`
+Làm mới access token
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+**Request:**
+- Cookie: `refresh_token` (httpOnly)
+
+**Response:**
+```json
+{
+  "accessToken": "new-jwt-access-token"
+}
+```
+
+#### `POST /auth/logout`
+Đăng xuất
+
+**Request:**
+- Cookie: `refresh_token` (httpOnly)
+
+**Response:**
+```json
+{
+  "ok": true
+}
+```
+
+#### `POST /auth/check-code`
+Xác thực email với verification code
+
+**Request Body:**
+```json
+{
+  "codeId": "verification-code-id",
+  "id": "user-id"
+}
+```
+
+#### `POST /auth/resend-code`
+Gửi lại verification code
+
+**Request Body:**
+```json
+{
+  "id": "user-id",
+  "email": "user@example.com"
+}
+```
+
+### **OAuth Google**
+
+#### `GET /auth/google`
+Bắt đầu OAuth flow với Google
+
+#### `GET /auth/google/callback`
+Callback từ Google OAuth (tự động redirect)
+
+## 🔄 Integration với các services khác
+
+### **RabbitMQ Events**
+
+Service publish các events sau:
+
+- `user.created` - Khi user mới được tạo
+
+### **Kafka Events**
+
+- Có thể mở rộng để publish events lên Kafka
+
+## 🧪 Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## 📝 Database Schema
+
+Service sử dụng Prisma ORM. Xem file `prisma/schema.prisma` để biết chi tiết schema.
+
+### **Main Models:**
+- `User` - Thông tin người dùng
+- `Role` - Vai trò người dùng
+- `RefreshToken` - Refresh tokens để rotation
+
+## 🔒 Security Best Practices
+
+1. **Password Hashing**: Sử dụng Argon2 (industry standard)
+2. **JWT**: RS256 với RSA keys (asymmetric)
+3. **Refresh Tokens**: Rotation và revocation
+4. **Rate Limiting**: Cấu hình rate limiting cho các endpoints
+5. **Input Validation**: Sử dụng class-validator
+6. **HTTPS**: Luôn sử dụng HTTPS trong production
+
+## 🐳 Docker
+
+```bash
+# Build image
+docker build -t auth-service .
+
+# Run với docker-compose
+docker-compose up
+```
+
+## 📚 Tài liệu thêm
+
+- [NestJS Documentation](https://docs.nestjs.com)
+- [Prisma Documentation](https://www.prisma.io/docs)
+- [Passport.js Documentation](http://www.passportjs.org)
+- [JWT Best Practices](https://datatracker.ietf.org/doc/html/rfc8725)
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## 📄 License
+
+MIT
