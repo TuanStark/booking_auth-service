@@ -1,4 +1,3 @@
 export type AuthJwtPayload = {
-    sub: string;
-  };
-  
+  sub: string;
+};

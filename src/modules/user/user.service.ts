@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -7,20 +11,23 @@ import * as argon from 'argon2';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService,
-  ) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
     try {
       const { password, roleId, email, ...userData } = createUserDto;
-      
+
       // Kiểm tra email đã tồn tại chưa
       const existingUser = await this.findByEmail(email);
       if (existingUser) {
-        throw new BadRequestException(`User with email ${email} already exists`);
+        throw new BadRequestException(
+          `User with email ${email} already exists`,
+        );
       }
 
-      const hashedPassword = password ? await argon.hash(password) : await argon.hash("123456");
+      const hashedPassword = password
+        ? await argon.hash(password)
+        : await argon.hash('123456');
 
       // Chuẩn bị data với role nếu có roleId
       const data: any = {
@@ -35,7 +42,7 @@ export class UserService {
         const role = await this.prisma.role.findUnique({
           where: { id: roleId },
         });
-        
+
         if (!role) {
           throw new BadRequestException(`Role with id ${roleId} not found`);
         }
@@ -55,7 +62,10 @@ export class UserService {
       });
     } catch (error) {
       // Re-throw nếu là BadRequestException hoặc NotFoundException
-      if (error instanceof BadRequestException || error instanceof NotFoundException) {
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
         throw error;
       }
       // Log và throw generic error cho các lỗi khác
@@ -70,7 +80,7 @@ export class UserService {
       limit = 10,
       search = '',
       sortBy = 'createdAt',
-      sortOrder = 'desc'
+      sortOrder = 'desc',
     } = query;
 
     const pageNumber = Number(page);
@@ -86,15 +96,15 @@ export class UserService {
     const searchUpCase = search.charAt(0).toUpperCase() + search.slice(1);
     const where = search
       ? {
-        OR: [
-          { firstName: { contains: searchUpCase } },
-          { lastName: { contains: searchUpCase } },
-          { email: { contains: searchUpCase } },
-        ]
-      }
+          OR: [
+            { firstName: { contains: searchUpCase } },
+            { lastName: { contains: searchUpCase } },
+            { email: { contains: searchUpCase } },
+          ],
+        }
       : {};
     const orderBy = {
-      [sortBy]: sortOrder
+      [sortBy]: sortOrder,
     };
 
     const [users, total] = await Promise.all([
@@ -106,8 +116,8 @@ export class UserService {
       }),
       this.prisma.user.count({
         where: where,
-      })
-    ])
+      }),
+    ]);
 
     return {
       data: users,
@@ -125,7 +135,7 @@ export class UserService {
       where: { id },
       include: {
         role: true,
-      }
+      },
     });
   }
 
@@ -134,11 +144,15 @@ export class UserService {
       where: { id },
       include: {
         role: true,
-      }
+      },
     });
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto, file: Express.Multer.File) {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    file: Express.Multer.File,
+  ) {
     const existingUser = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -157,7 +171,9 @@ export class UserService {
         try {
           return updatedUser;
         } catch (error) {
-          throw new BadRequestException(`Failed to update user: ${error.message}`);
+          throw new BadRequestException(
+            `Failed to update user: ${error.message}`,
+          );
         }
       }
     } catch (error) {
@@ -192,8 +208,8 @@ export class UserService {
         email,
       },
       include: {
-        role: true
-      }
+        role: true,
+      },
     });
   }
 }

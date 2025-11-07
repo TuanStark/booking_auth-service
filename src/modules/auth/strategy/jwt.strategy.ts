@@ -13,11 +13,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private configService: ConfigService,
   ) {
     const jwtConfig = configService.get<JwtConfig>('jwt');
-    
+
     if (!jwtConfig?.publicKey) {
       throw new Error('JWT public key is not configured');
     }
-    
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

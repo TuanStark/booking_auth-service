@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuthDTO } from './dto/index.js';
 import * as argon from 'argon2';
@@ -24,7 +29,7 @@ export class AuthService {
     private userService: UserService,
     private rabbitMQProducerService: RabbitMQProducerService,
     private redisService: RedisService,
-  ) { }
+  ) {}
 
   async register(dto: AuthDTO) {
     const { email, password, name } = dto;
@@ -46,20 +51,23 @@ export class AuthService {
           password: hash,
           name: name || '',
           roleId: 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
-          status: "unactive",
+          status: 'unactive',
           codeId: codeId,
           codeExpired: dayjs().add(1, 'minute').toDate(),
         },
       });
-      await this.rabbitMQProducerService.emitCreateUserEvent(RabbitMQTopics.CREATE_USER, {
-        id: user.id,
-        email: user.email,
-        password: user.password,
-        name: name || '',
-        roleId: user.roleId || 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
-        codeId: user.codeId || '',
-        codeExpired: user.codeExpired || dayjs().add(1, 'minute').toDate(),
-      });
+      await this.rabbitMQProducerService.emitCreateUserEvent(
+        RabbitMQTopics.CREATE_USER,
+        {
+          id: user.id,
+          email: user.email,
+          password: user.password,
+          name: name || '',
+          roleId: user.roleId || 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
+          codeId: user.codeId || '',
+          codeExpired: user.codeExpired || dayjs().add(1, 'minute').toDate(),
+        },
+      );
       return user;
     } catch (error) {
       if (error.code === 'P2002') {
@@ -81,7 +89,7 @@ export class AuthService {
 
   //now convert to an object, not string
   async signJwtToken(
-    user
+    user,
   ): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = {
       sub: user.id,
@@ -188,7 +196,7 @@ export class AuthService {
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
-        status: 'active'
+        status: 'active',
       },
     });
     return user;
@@ -200,7 +208,7 @@ export class AuthService {
       where: {
         id: userId,
         email: email,
-        status: 'unactive' // Chỉ cho phép gửi lại mã nếu chưa active
+        status: 'unactive', // Chỉ cho phép gửi lại mã nếu chưa active
       },
     });
 
@@ -222,15 +230,18 @@ export class AuthService {
     });
 
     // Gửi email với mã mới
-    await this.rabbitMQProducerService.emitResendVerificationCodeEvent(RabbitMQTopics.RESEND_VERIFICATION_CODE, {
-      id: user.id,
-      email: user.email,
-      password: user.password,
-      name: user.name || '',
-      roleId: user.roleId,
-      codeId: newCodeId,
-      codeExpired: newCodeExpired,
-    });
+    await this.rabbitMQProducerService.emitResendVerificationCodeEvent(
+      RabbitMQTopics.RESEND_VERIFICATION_CODE,
+      {
+        id: user.id,
+        email: user.email,
+        password: user.password,
+        name: user.name || '',
+        roleId: user.roleId,
+        codeId: newCodeId,
+        codeExpired: newCodeExpired,
+      },
+    );
 
     return {
       message: 'Mã xác thực mới đã được gửi đến email của bạn',
@@ -239,19 +250,34 @@ export class AuthService {
     };
   }
 
-  async validateOAuthUser(payload: { provider: string; providerId: string; email?: string; emailVerified?: boolean; name?: string }, meta: { ip?: string; userAgent?: string }) {
+  async validateOAuthUser(
+    payload: {
+      provider: string;
+      providerId: string;
+      email?: string;
+      emailVerified?: boolean;
+      name?: string;
+    },
+    meta: { ip?: string; userAgent?: string },
+  ) {
     // try find by providerId
     let user = await this.prisma.user.findFirst({
       where: { provider: payload.provider, providerId: payload.providerId },
     });
 
     if (!user && payload.email) {
-      user = await this.prisma.user.findUnique({ where: { email: payload.email } });
+      user = await this.prisma.user.findUnique({
+        where: { email: payload.email },
+      });
       if (user) {
         // link provider if email matches
         await this.prisma.user.update({
           where: { id: user.id },
-          data: { provider: payload.provider, providerId: payload.providerId, emailVerified: payload.emailVerified ?? user.emailVerified },
+          data: {
+            provider: payload.provider,
+            providerId: payload.providerId,
+            emailVerified: payload.emailVerified ?? user.emailVerified,
+          },
         });
         user = await this.prisma.user.findUnique({ where: { id: user.id } });
       }
@@ -259,8 +285,9 @@ export class AuthService {
 
     if (!user) {
       // create new user
-      const role = await this.prisma.role.findUnique({ where: { name: 'USER' } }) ??
-        await this.prisma.role.create({ data: { name: 'USER' } });
+      const role =
+        (await this.prisma.role.findUnique({ where: { name: 'USER' } })) ??
+        (await this.prisma.role.create({ data: { name: 'USER' } }));
 
       const createData: any = {
         provider: payload.provider,
@@ -287,7 +314,11 @@ export class AuthService {
   }
 
   // create session => access + refresh tokens; store hashed refresh token
-  async createSessionForUser(user: any, ip: string | null, userAgent: string | null) {
+  async createSessionForUser(
+    user: any,
+    ip: string | null,
+    userAgent: string | null,
+  ) {
     const payload = { sub: user.id, email: user.email, role: user.roleId };
 
     // access token (short lived)
@@ -299,7 +330,10 @@ export class AuthService {
     // refresh token as random string
     const refreshRaw = randomBytes(64).toString('hex');
     const tokenHash = hashToken(refreshRaw);
-    const expiresAt = new Date(Date.now() + (Number(process.env.REFRESH_EXPIRE_DAYS || 7) * 24 * 3600 * 1000));
+    const expiresAt = new Date(
+      Date.now() +
+        Number(process.env.REFRESH_EXPIRE_DAYS || 7) * 24 * 3600 * 1000,
+    );
 
     await this.prisma.refreshToken.create({
       data: {
@@ -324,29 +358,50 @@ export class AuthService {
 
     if (!token || token.revoked || token.expiresAt < new Date()) {
       if (token?.userId) {
-        await this.prisma.refreshToken.updateMany({ where: { userId: token.userId }, data: { revoked: true } });
+        await this.prisma.refreshToken.updateMany({
+          where: { userId: token.userId },
+          data: { revoked: true },
+        });
       }
       throw new UnauthorizedException('Invalid refresh token');
     }
 
     // revoke old
-    await this.prisma.refreshToken.update({ where: { id: token.id }, data: { revoked: true } });
+    await this.prisma.refreshToken.update({
+      where: { id: token.id },
+      data: { revoked: true },
+    });
 
     // create new refresh token
     const newRaw = randomBytes(64).toString('hex');
     const newHash = hashToken(newRaw);
-    const expiresAt = new Date(Date.now() + (Number(process.env.REFRESH_EXPIRE_DAYS || 7) * 24 * 3600 * 1000));
+    const expiresAt = new Date(
+      Date.now() +
+        Number(process.env.REFRESH_EXPIRE_DAYS || 7) * 24 * 3600 * 1000,
+    );
     await this.prisma.refreshToken.create({
-      data: { userId: token.userId, tokenHash: newHash, ip: ip ?? undefined, userAgent: userAgent ?? undefined, expiresAt },
+      data: {
+        userId: token.userId,
+        tokenHash: newHash,
+        ip: ip ?? undefined,
+        userAgent: userAgent ?? undefined,
+        expiresAt,
+      },
     });
 
-    const accessToken = await this.jwtService.signAsync({ sub: token.user.id, email: token.user.email, role: token.user.roleId }, { algorithm: 'RS256', expiresIn: process.env.JWT_EXPIRE_IN || '15m' });
+    const accessToken = await this.jwtService.signAsync(
+      { sub: token.user.id, email: token.user.email, role: token.user.roleId },
+      { algorithm: 'RS256', expiresIn: process.env.JWT_EXPIRE_IN || '15m' },
+    );
 
     return { accessToken, refreshToken: newRaw, expiresAt };
   }
 
   async revokeRefreshToken(refreshRaw: string) {
     const tokenHash = hashToken(refreshRaw);
-    await this.prisma.refreshToken.updateMany({ where: { tokenHash }, data: { revoked: true } });
+    await this.prisma.refreshToken.updateMany({
+      where: { tokenHash },
+      data: { revoked: true },
+    });
   }
 }

@@ -27,9 +27,7 @@ const cookieOptions = {
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-  ) { }
+  constructor(private readonly authService: AuthService) {}
 
   @Post('register')
   async register(@Req() request: Request, @Body() createAuthDto: AuthDTO) {
@@ -82,7 +80,7 @@ export class AuthController {
   }
 
   @Post('check-code')
-  async checkCode(@Body() body: { codeId: string, id: string }) {
+  async checkCode(@Body() body: { codeId: string; id: string }) {
     try {
       const user = await this.authService.handleActive(body.codeId, body.id);
       return new ResponseData(user, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
@@ -96,9 +94,12 @@ export class AuthController {
   }
 
   @Post('resend-code')
-  async resendCode(@Body() body: { id: string, email: string }) {
+  async resendCode(@Body() body: { id: string; email: string }) {
     try {
-      const result = await this.authService.resendVerificationCode(body.id, body.email);
+      const result = await this.authService.resendVerificationCode(
+        body.id,
+        body.email,
+      );
       return new ResponseData(result, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
     } catch (error) {
       if (error.message.includes('User not found')) {
@@ -128,13 +129,17 @@ export class AuthController {
     try {
       console.log('loginDto', loginDto);
       const response = await this.authService.login(loginDto);
-      return new ResponseData(response, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
+      return new ResponseData(
+        response,
+        HttpStatus.SUCCESS,
+        HttpMessage.SUCCESS,
+      );
     } catch (error) {
       console.error('Login error:', error);
       return new ResponseData(
         null,
         HttpStatus.UNAUTHORIZED,
-        HttpMessage.INVALID_CREDENTIALS
+        HttpMessage.INVALID_CREDENTIALS,
       );
     }
   }
@@ -142,14 +147,20 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Req() req, @Res() res) {
     const refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) return res.status(401).json({ message: 'No refresh token' });
+    if (!refreshToken)
+      return res.status(401).json({ message: 'No refresh token' });
 
-    const { accessToken, refreshToken: newRefresh } = await this.authService.refresh(refreshToken, req.ip, req.headers['user-agent']);
+    const { accessToken, refreshToken: newRefresh } =
+      await this.authService.refresh(
+        refreshToken,
+        req.ip,
+        req.headers['user-agent'],
+      );
     res.cookie('refresh_token', newRefresh, cookieOptions);
     return res.json({ accessToken });
   }
 
-   @Post('logout')
+  @Post('logout')
   async logout(@Req() req, @Res() res) {
     const refresh = req.cookies?.refresh_token;
     if (refresh) await this.authService.revokeRefreshToken(refresh);
@@ -169,7 +180,12 @@ export class AuthController {
   async googleAuthRedirect(@Req() req, @Res() res) {
     // validateOAuthUser returns a User object, now create session
     const user = req.user;
-    const { accessToken, refreshToken } = await this.authService.createSessionForUser(user, req.ip, req.headers['user-agent']);
+    const { accessToken, refreshToken } =
+      await this.authService.createSessionForUser(
+        user,
+        req.ip,
+        req.headers['user-agent'],
+      );
     res.cookie('refresh_token', refreshToken, cookieOptions);
     // redirect to frontend with access token (or set cookie and redirect)
     const redirect = process.env.FRONTEND_URL || 'http://localhost:3000';

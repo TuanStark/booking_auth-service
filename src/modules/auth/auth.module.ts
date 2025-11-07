@@ -43,11 +43,7 @@ import { RedisModule } from '@/messaging/redis/redis.module';
     RedisModule,
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    LocalStrategy,
-  ],
+  providers: [AuthService, JwtStrategy, LocalStrategy],
   exports: [AuthService, JwtStrategy, LocalStrategy, PassportModule],
 })
 export class AuthModule {}

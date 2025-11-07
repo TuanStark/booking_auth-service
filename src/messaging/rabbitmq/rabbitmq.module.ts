@@ -12,12 +12,15 @@ import { RabbitMQProducerService } from './rabbitmq.producer.service';
         imports: [ConfigModule],
         useFactory: (configService: ConfigService) => {
           const logger = new Logger('RabbitMQModule');
-          const rabbitmqUrl = configService.get<string>('RABBITMQ_URL') || 'amqp://localhost:5672';
-          const queue = configService.get<string>('RABBITMQ_QUEUE') || 'notification_queue';
-          
+          const rabbitmqUrl =
+            configService.get<string>('RABBITMQ_URL') ||
+            'amqp://localhost:5672';
+          const queue =
+            configService.get<string>('RABBITMQ_QUEUE') || 'notification_queue';
+
           logger.log(`🔗 Connecting to RabbitMQ: ${rabbitmqUrl}`);
           logger.log(`📨 Queue: ${queue}`);
-          
+
           return {
             transport: Transport.RMQ,
             options: {

@@ -1,4 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, HttpStatus, UseGuards, Req, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  HttpStatus,
+  UseGuards,
+  Req,
+  Query,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -25,7 +39,11 @@ export class UserController {
       const user = await this.userService.findOneForAuthentication(req.user.id);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
-      return new ResponseData(null, HttpStatus.INTERNAL_SERVER_ERROR, HttpMessage.SERVER_ERROR);
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
     }
   }
 
@@ -57,7 +75,11 @@ export class UserController {
       const user = await this.userService.findAll(query);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
-      return new ResponseData(null, HttpStatus.INTERNAL_SERVER_ERROR, HttpMessage.SERVER_ERROR);
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
     }
   }
 
@@ -68,27 +90,41 @@ export class UserController {
       const user = await this.userService.findOne(id);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
-      return new ResponseData(null, HttpStatus.INTERNAL_SERVER_ERROR, HttpMessage.SERVER_ERROR);
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
     }
   }
 
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
-  @UseInterceptors(FileInterceptor('file', {
-    limits: { fileSize: 2000000 },
-    fileFilter: (req, file, cb) => {
-      if (!file || !file.mimetype.match(/image\/(jpg|jpeg|png|gif)/)) {
-        return cb(new Error('Only image files are allowed!'), false);
-      }
-      cb(null, true);
-    },
-  })) 
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto, @UploadedFile() file: Express.Multer.File) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2000000 },
+      fileFilter: (req, file, cb) => {
+        if (!file || !file.mimetype.match(/image\/(jpg|jpeg|png|gif)/)) {
+          return cb(new Error('Only image files are allowed!'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
     try {
       const user = await this.userService.update(id, updateUserDto, file);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
-      return new ResponseData(null, HttpStatus.INTERNAL_SERVER_ERROR, HttpMessage.SERVER_ERROR);
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
     }
   }
 
@@ -99,7 +135,11 @@ export class UserController {
       const user = await this.userService.remove(id, updateUserDto);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
-      return new ResponseData(null, HttpStatus.INTERNAL_SERVER_ERROR, HttpMessage.SERVER_ERROR);
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
     }
   }
 }

@@ -15,18 +15,26 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(req: any, accessToken: string, refreshToken: string, profile: any) {
+  async validate(
+    req: any,
+    accessToken: string,
+    refreshToken: string,
+    profile: any,
+  ) {
     const email = profile.emails?.[0]?.value;
     const emailVerified = profile.emails?.[0]?.verified ?? false;
     const providerId = profile.id;
 
-    const user = await this.authService.validateOAuthUser({
-      provider: 'google',
-      providerId,
-      email,
-      emailVerified,
-      name: profile.displayName,
-    }, { ip: req.ip, userAgent: req.headers['user-agent'] });
+    const user = await this.authService.validateOAuthUser(
+      {
+        provider: 'google',
+        providerId,
+        email,
+        emailVerified,
+        name: profile.displayName,
+      },
+      { ip: req.ip, userAgent: req.headers['user-agent'] },
+    );
 
     return user;
   }
