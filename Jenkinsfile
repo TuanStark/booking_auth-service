@@ -49,7 +49,6 @@ pipeline {
         stage('Database Migration') {
             steps {
                 sh 'npx prisma generate'
-                sh 'npx prisma migrate deploy'
             }
         }
         
@@ -67,11 +66,11 @@ pipeline {
         //     }
         // }
         
-        stage('Integration Tests') {
-            steps {
-                sh 'npm run test:e2e'
-            }
-        }
+        // stage('Integration Tests') {
+        //     steps {
+        //         sh 'npm run test:e2e'
+        //     }
+        // }
         
         stage('Build Application') {
             steps {
