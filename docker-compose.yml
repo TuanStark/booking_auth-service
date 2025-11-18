@@ -22,6 +22,7 @@ services:
       JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
       JWT_EXPIRE_IN: ${JWT_EXPIRE_IN}
       JWT_REFRESH_EXPIRE_IN: ${JWT_REFRESH_EXPIRE_IN}
+    command: sh -c "npx prisma migrate deploy && node dist/main"
     networks:
       my_custom_network:
         ipv4_address: ${APP_IP}

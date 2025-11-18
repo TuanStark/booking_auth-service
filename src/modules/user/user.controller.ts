@@ -5,7 +5,6 @@ import {
   Body,
   Patch,
   Param,
-  Delete,
   HttpStatus,
   UseGuards,
   Req,
@@ -18,14 +17,10 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ResponseData } from 'src/common/global/globalClass';
 import { HttpMessage } from 'src/common/global/globalEnum';
-import { MyJwtGuard } from '../auth/guard/myjwt.guard';
-import { GetUser } from '../auth/decorator/user.decorator';
 import { JwtAuthGuard } from '../auth/guard/jwt-auth/jwt-auth.guard';
 import { FindAllDto } from 'src/common/global/find-all.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Roles } from '../auth/decorator/role.decorator';
 import { RolesGuard } from '../auth/guard/roles.guard';
-import { Multer } from 'multer';
 
 @Controller('user')
 export class UserController {
