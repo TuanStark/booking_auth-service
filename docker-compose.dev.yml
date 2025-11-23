@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: auth-service-dev
+    container_name: auth-service
     ports:
       - "3001:3001"
     environment:
@@ -23,7 +23,6 @@ services:
       JWT_EXPIRE_IN: ${JWT_EXPIRE_IN}
       JWT_REFRESH_EXPIRE_IN: ${JWT_REFRESH_EXPIRE_IN}
     volumes:
-      # Chỉ mount source code, KHÔNG mount node_modules
       - .:/app
       - /app/node_modules
       - /app/dist
