@@ -24,7 +24,7 @@ import { RolesGuard } from '../auth/guard/roles.guard';
 
 @Controller('user')
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -69,6 +69,24 @@ export class UserController {
     try {
       const user = await this.userService.findAll(query);
       return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
+    } catch (error) {
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Get user statistics for dashboard
+   * GET /user/stats
+   */
+  @Get('stats')
+  async getStats() {
+    try {
+      const stats = await this.userService.getStats();
+      return new ResponseData(stats, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
       return new ResponseData(
         null,

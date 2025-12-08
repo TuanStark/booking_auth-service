@@ -11,7 +11,7 @@ import * as argon from 'argon2';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createUserDto: CreateUserDto) {
     try {
@@ -96,12 +96,12 @@ export class UserService {
     const searchUpCase = search.charAt(0).toUpperCase() + search.slice(1);
     const where = search
       ? {
-          OR: [
-            { firstName: { contains: searchUpCase } },
-            { lastName: { contains: searchUpCase } },
-            { email: { contains: searchUpCase } },
-          ],
-        }
+        OR: [
+          { firstName: { contains: searchUpCase } },
+          { lastName: { contains: searchUpCase } },
+          { email: { contains: searchUpCase } },
+        ],
+      }
       : {};
     const orderBy = {
       [sortBy]: sortOrder,
@@ -211,5 +211,51 @@ export class UserService {
         role: true,
       },
     });
+  }
+
+  /**
+   * Get user statistics for dashboard
+   */
+  async getStats() {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+
+    const [totalUsers, activeUsers, newUsersThisMonth, newUsersLastMonth] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.user.count({ where: { status: 'active' } }),
+        this.prisma.user.count({
+          where: {
+            createdAt: { gte: startOfMonth },
+          },
+        }),
+        this.prisma.user.count({
+          where: {
+            createdAt: {
+              gte: lastMonth,
+              lte: endOfLastMonth,
+            },
+          },
+        }),
+      ]);
+
+    // Calculate growth percentage
+    const userGrowth =
+      newUsersLastMonth > 0
+        ? ((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100
+        : newUsersThisMonth > 0
+          ? 100
+          : 0;
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers: totalUsers - activeUsers,
+      newUsersThisMonth,
+      newUsersLastMonth,
+      userGrowth: Math.round(userGrowth * 100) / 100,
+    };
   }
 }
