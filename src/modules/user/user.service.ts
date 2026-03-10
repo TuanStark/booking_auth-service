@@ -11,7 +11,7 @@ import * as argon from 'argon2';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   async create(createUserDto: CreateUserDto) {
     try {
@@ -96,12 +96,12 @@ export class UserService {
     const searchUpCase = search.charAt(0).toUpperCase() + search.slice(1);
     const where = search
       ? {
-        OR: [
-          { firstName: { contains: searchUpCase } },
-          { lastName: { contains: searchUpCase } },
-          { email: { contains: searchUpCase } },
-        ],
-      }
+          OR: [
+            { firstName: { contains: searchUpCase } },
+            { lastName: { contains: searchUpCase } },
+            { email: { contains: searchUpCase } },
+          ],
+        }
       : {};
     const orderBy = {
       [sortBy]: sortOrder,
