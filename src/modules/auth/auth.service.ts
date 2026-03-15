@@ -4,6 +4,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { AuthDTO } from './dto/index.js';
 import * as argon from 'argon2';
@@ -32,29 +33,31 @@ export class AuthService {
   ) {}
 
   async register(dto: AuthDTO) {
-    const { email, password, name } = dto;
+    const { email, password, name, studentId, phone } = dto;
+
     const existingUser = await this.prisma.user.findUnique({
       where: { email },
     });
 
     if (existingUser) {
-      throw new ForbiddenException('Email already in use');
+      throw new ForbiddenException('Email đã được sử dụng');
     }
 
     const hash = await argon.hash(password);
     const codeId = uuidv4();
-    // Create user
     try {
       const user = await this.prisma.user.create({
         data: {
           email,
           password: hash,
           name: name || '',
+          studentId: studentId ?? undefined,
+          phone: phone ?? undefined,
           roleId: 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
           status: 'unactive',
           codeId: codeId,
           codeExpired: dayjs().add(1, 'minute').toDate(),
-        },
+        } as Prisma.UserUncheckedCreateInput,
       });
       await this.rabbitMQProducerService.emitCreateUserEvent(
         RabbitMQTopics.CREATE_USER,
@@ -65,14 +68,15 @@ export class AuthService {
           name: name || '',
           roleId: user.roleId || 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
           codeId: user.codeId || '',
-          codeExpired: user.codeExpired || dayjs().add(1, 'minute').toDate(),
+          codeExpired: user.codeExpired || dayjs().add(5, 'minute').toDate(),
         },
       );
       return user;
     } catch (error) {
       if (error.code === 'P2002') {
-        throw new ForbiddenException('User with email already exists');
+        throw new ForbiddenException('Email đã được sử dụng');
       }
+      throw error;
     }
   }
 

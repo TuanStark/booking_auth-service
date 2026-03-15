@@ -26,13 +26,15 @@ model Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String?   @map("name")
-  email     String   @unique
-  password String
-  gender   String?
+  id         String   @id @default(uuid())
+  name       String?  @map("name")
+  email      String   @unique
+  password   String
+  studentId  String?  @map("student_id")  // Mã sinh viên
+  phone      String?  @map("phone")       // Số điện thoại
+  gender     String?
   dateOfBirth DateTime?
-  avatar    String?
+  avatar     String?
   provider     String?          // 'google' | 'local' ...
   providerId   String?          // id từ provider (Google sub)
   emailVerified Boolean @default(false)
