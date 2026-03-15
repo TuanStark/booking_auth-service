@@ -56,7 +56,7 @@ export class AuthService {
           roleId: 'cb8d828d-c0b9-460f-8b30-f7de4152e84f',
           status: 'unactive',
           codeId: codeId,
-          codeExpired: dayjs().add(1, 'minute').toDate(),
+          codeExpired: dayjs().add(10, 'minute').toDate(),
         } as Prisma.UserUncheckedCreateInput,
       });
       await this.rabbitMQProducerService.publishMessage(
@@ -80,14 +80,19 @@ export class AuthService {
     }
   }
 
-  async login(loginDto: { email: string; password: string }) {
+  async login(loginDto: { email: string; password: string }, ip?: string, userAgent?: string) {
     const user = await this.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new ForbiddenException('Invalid credentials');
     }
-
-    // Generate tokens
-    const token = await this.signJwtToken(user);
+    if (user.status !== 'active') {
+      throw new BadRequestException({
+        code: 'EMAIL_NOT_VERIFIED',
+        userId: user.id,
+        email: user.email,
+      });
+    }
+    const token = await this.createSessionForUser(user, ip || null, userAgent || null);
     return token;
   }
 
@@ -181,17 +186,15 @@ export class AuthService {
   }
 
   async handleActive(codeId: string, id: string) {
-    const user = await this.prisma.user.findUnique({
+    // findFirst: (id, codeId) không phải compound unique nên không dùng findUnique
+    const user = await this.prisma.user.findFirst({
       where: {
-        id: id,
-        codeId: codeId,
+        id,
+        codeId,
       },
     });
     if (!user) {
-      throw new BadRequestException('Khong tìm thấy người dùng');
-    }
-    if (user.codeId !== codeId) {
-      throw new BadRequestException('Mã xác thực không chính xác');
+      throw new BadRequestException('Mã xác thực không đúng hoặc đã hết hạn');
     }
     const isBeforeCheck = dayjs().isBefore(user.codeExpired);
     if (!isBeforeCheck) {

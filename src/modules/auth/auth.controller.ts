@@ -9,6 +9,7 @@ import {
   UseGuards,
   Req,
   Res,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthDTO, LoginDTO } from './dto';
@@ -27,7 +28,7 @@ const cookieOptions = {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
   async register(@Req() request: Request, @Body() createAuthDto: AuthDTO) {
@@ -125,22 +126,40 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: { email: string; password: string }) {
+  async login(@Req() req, @Body() loginDto: { email: string; password: string }) {
     try {
-      console.log('loginDto', loginDto);
-      const response = await this.authService.login(loginDto);
+      const response = await this.authService.login(loginDto, req.ip, req.headers['user-agent']);
       return new ResponseData(
         response,
         HttpStatus.SUCCESS,
         HttpMessage.SUCCESS,
       );
     } catch (error) {
-      console.error('Login error:', error);
-      return new ResponseData(
-        null,
-        HttpStatus.UNAUTHORIZED,
-        HttpMessage.INVALID_CREDENTIALS,
-      );
+      console.log(error.code);
+      const payload = typeof error?.getResponse === 'function'
+        ? error.getResponse()
+        : error?.response?.message ?? error?.message ?? {};
+      const data = typeof payload === 'object' ? payload : {};
+      if (
+        data?.code === 'EMAIL_NOT_VERIFIED' &&
+        data?.userId &&
+        data?.email
+      ) {
+        // Automatically resend code when the user tries to login but is unverified
+        try {
+          await this.authService.resendVerificationCode(data.userId, data.email);
+        } catch (resendError) {
+          console.error('Auto resend code failed during login:', resendError);
+        }
+
+        throw new ForbiddenException({
+          code: 'EMAIL_NOT_VERIFIED',
+          userId: data.userId,
+          email: data.email,
+          message: 'Vui lòng xác thực email trước khi đăng nhập. Một mã xác thực mới đã được gửi.',
+        });
+      }
+      throw new UnauthorizedException(HttpMessage.INVALID_CREDENTIALS);
     }
   }
 
