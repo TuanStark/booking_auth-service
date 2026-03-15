@@ -19,7 +19,7 @@ import { randomBytes } from 'crypto';
 import { hashToken } from '../../shared/utils/token.util.js';
 import { RabbitMQProducerService } from '../../messaging/rabbitmq/rabbitmq.producer.service';
 import { RedisService } from '@/messaging/redis/redis.service';
-import { RabbitMQTopics } from '@/messaging/rabbitmq/rabbitmq.topic';
+import { RabbitMQTopics } from '../../messaging/rabbitmq/rabbitmq.topic';
 
 @Injectable()
 export class AuthService {
@@ -59,7 +59,7 @@ export class AuthService {
           codeExpired: dayjs().add(1, 'minute').toDate(),
         } as Prisma.UserUncheckedCreateInput,
       });
-      await this.rabbitMQProducerService.emitCreateUserEvent(
+      await this.rabbitMQProducerService.publishMessage(
         RabbitMQTopics.CREATE_USER,
         {
           id: user.id,
@@ -234,7 +234,7 @@ export class AuthService {
     });
 
     // Gửi email với mã mới
-    await this.rabbitMQProducerService.emitResendVerificationCodeEvent(
+    await this.rabbitMQProducerService.publishMessage(
       RabbitMQTopics.RESEND_VERIFICATION_CODE,
       {
         id: user.id,

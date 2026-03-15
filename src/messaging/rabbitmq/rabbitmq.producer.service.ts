@@ -1,6 +1,13 @@
-import { Injectable, Logger, Inject } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
-import { firstValueFrom } from 'rxjs';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as amqp from 'amqp-connection-manager';
+import type { ChannelWrapper } from 'amqp-connection-manager';
+import type { ConfirmChannel } from 'amqplib';
 
 export interface CreateUserEventData {
   id: string;
@@ -13,69 +20,84 @@ export interface CreateUserEventData {
 }
 
 @Injectable()
-export class RabbitMQProducerService {
+export class RabbitMQProducerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RabbitMQProducerService.name);
+  private connection!: amqp.AmqpConnectionManager;
+  private channelWrapper!: ChannelWrapper;
 
-  constructor(@Inject('RABBITMQ_CLIENT') private readonly client: ClientProxy) {
-    this.logger.log('RabbitMQProducerService initialized');
-    this.logger.log(`🔗 RabbitMQ Client available: ${!!this.client}`);
+  private readonly exchange: string;
+
+  constructor(private readonly configService: ConfigService) {
+    this.exchange =
+      this.configService.get<string>('RABBITMQ_EXCHANGE') ?? 'user_exchange';
   }
 
-  async emitCreateUserEvent(
-    topic: string,
-    data: CreateUserEventData,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `Publishing create user event to ${topic}: ${JSON.stringify(data)}`,
-      );
+  async onModuleInit(): Promise<void> {
+    const url =
+      this.configService.get<string>('RABBITMQ_URL') ?? 'amqp://localhost:5672';
+    this.connection = amqp.connect([url]);
 
-      // Check if client is available
-      if (!this.client) {
-        throw new Error('RabbitMQ client is not available');
+    this.connection.on('connect', () =>
+      this.logger.log('Connected to RabbitMQ'),
+    );
+    this.connection.on('disconnect', (err) =>
+      this.logger.error('Disconnected from RabbitMQ', err),
+    );
+
+    this.channelWrapper = this.connection.createChannel({
+      json: true,
+      setup: async (channel: ConfirmChannel) => {
+        await channel.assertExchange(this.exchange, 'topic', {
+          durable: true,
+        });
+        this.logger.log(
+          `RabbitMQ Topology: Exchange=${this.exchange} (topic)`,
+        );
+      },
+    });
+  }
+
+  async publishMessage(pattern: string, data: CreateUserEventData): Promise<void> {
+    try {
+      if (!this.channelWrapper) {
+        throw new Error('RabbitMQ channel is not available');
       }
 
-      // Try to emit the message
-      this.client.emit(topic, data);
+      const payload = { pattern, data };
+      const sanitized = {
+        ...data,
+        password: '[REDACTED]',
+      };
       this.logger.log(
-        `✅ Create user event published successfully to ${topic}`,
+        `Publishing to ${pattern}: ${JSON.stringify(sanitized)}`,
       );
 
-      // Wait a bit to see if there are any immediate errors
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to publish create user event to ${topic}: ${error.message}`,
-        error.stack,
+      await this.channelWrapper.publish(
+        this.exchange,
+        pattern,
+        payload,
+        {
+          persistent: true,
+          contentType: 'application/json',
+        } as Record<string, unknown>,
       );
+
+      this.logger.log(`✅ Message published to pattern: ${pattern}`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error);
+      const stack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to publish to ${pattern}: ${msg}`, stack);
       throw error;
     }
   }
 
-  async emitResendVerificationCodeEvent(
-    topic: string,
-    data: CreateUserEventData,
-  ): Promise<void> {
-    try {
-      this.logger.log(
-        `Publishing resend verification code event to ${topic}: ${JSON.stringify(data)}`,
-      );
-
-      // Check if client is available
-      if (!this.client) {
-        throw new Error('RabbitMQ client is not available');
-      }
-
-      this.client.emit(topic, data);
-      this.logger.log(
-        `✅ Resend verification code event published successfully to ${topic}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `❌ Failed to publish resend verification code event to ${topic}: ${error.message}`,
-        error.stack,
-      );
-      throw error;
+  async onModuleDestroy(): Promise<void> {
+    if (this.channelWrapper) {
+      await this.channelWrapper.close();
     }
+    if (this.connection) {
+      await this.connection.close();
+    }
+    this.logger.log('RabbitMQ connection closed');
   }
 }
