@@ -139,6 +139,18 @@ export class UserService {
     });
   }
 
+  /** Safe fields for public surfaces (e.g. review author). No password or tokens. */
+  async findPublicProfile(id: string) {
+    return this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+      },
+    });
+  }
+
   async findOneForAuthentication(id: string) {
     return this.prisma.user.findUnique({
       where: { id },

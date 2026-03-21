@@ -45,7 +45,6 @@ export class RabbitMQProducerService implements OnModuleInit, OnModuleDestroy {
     );
 
     this.channelWrapper = this.connection.createChannel({
-      json: true,
       setup: async (channel: ConfirmChannel) => {
         await channel.assertExchange(this.exchange, 'topic', {
           durable: true,
@@ -75,7 +74,7 @@ export class RabbitMQProducerService implements OnModuleInit, OnModuleDestroy {
       await this.channelWrapper.publish(
         this.exchange,
         pattern,
-        payload,
+        Buffer.from(JSON.stringify(payload)),
         {
           persistent: true,
           contentType: 'application/json',

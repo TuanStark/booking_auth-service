@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guard/jwt-auth/jwt-auth.guard';
 import { FindAllDto } from 'src/common/global/find-all.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { RolesGuard } from '../auth/guard/roles.guard';
+import { Public } from '../auth/decorator/public.decorator';
 
 @Controller('user')
 export class UserController {
@@ -87,6 +88,28 @@ export class UserController {
     try {
       const stats = await this.userService.getStats();
       return new ResponseData(stats, HttpStatus.OK, HttpMessage.SUCCESS);
+    } catch (error) {
+      return new ResponseData(
+        null,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
+    }
+  }
+
+  /**
+   * Public display profile for cross-service use (e.g. review author).
+   * Must stay above @Get(':id') so "public" is not captured as an id.
+   */
+  @Public()
+  @Get('public/:id')
+  async findPublic(@Param('id') id: string) {
+    try {
+      const user = await this.userService.findPublicProfile(id);
+      if (!user) {
+        return new ResponseData(null, HttpStatus.NOT_FOUND, HttpMessage.NOT_FOUND);
+      }
+      return new ResponseData(user, HttpStatus.OK, HttpMessage.SUCCESS);
     } catch (error) {
       return new ResponseData(
         null,
