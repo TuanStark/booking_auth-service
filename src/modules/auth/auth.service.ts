@@ -96,15 +96,26 @@ export class AuthService {
     return token;
   }
 
+  /** Claims shared by access JWT (RS256) and legacy signJwtToken payloads. */
+  private buildAccessTokenPayload(user: any, roleName: string) {
+    const roleId =
+      user.roleId ??
+      (user.role && typeof user.role === 'object' ? user.role.id : undefined);
+    return {
+      sub: user.id,
+      email: user.email,
+      roleId,
+      roleName,
+      role: roleName,
+    };
+  }
+
   //now convert to an object, not string
   async signJwtToken(
     user,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    const payload = {
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    };
+    const roleName = await this.resolveRoleNameForJwt(user);
+    const payload = this.buildAccessTokenPayload(user, roleName);
 
     console.log('JWT Payload:', payload);
 
@@ -140,6 +151,7 @@ export class AuthService {
       // Find the user to ensure they still exist
       const user = await this.prisma.user.findUnique({
         where: { id: userId },
+        include: { role: true },
       });
 
       if (!user || user.email !== email) {
@@ -320,13 +332,33 @@ export class AuthService {
     return user;
   }
 
+  /** Role name for JWT — api-gateway RolesGuard checks e.g. @Roles('ADMIN') against this string, not roleId. */
+  private async resolveRoleNameForJwt(user: {
+    id: string;
+    roleId?: string;
+    role?: { name: string } | null;
+  }): Promise<string> {
+    if (user?.role && typeof user.role === 'object' && user.role.name) {
+      return user.role.name;
+    }
+    if (user?.roleId) {
+      const r = await this.prisma.role.findUnique({
+        where: { id: user.roleId },
+        select: { name: true },
+      });
+      if (r?.name) return r.name;
+    }
+    throw new UnauthorizedException('User role could not be resolved for token');
+  }
+
   // create session => access + refresh tokens; store hashed refresh token
   async createSessionForUser(
     user: any,
     ip: string | null,
     userAgent: string | null,
   ) {
-    const payload = { sub: user.id, email: user.email, role: user.roleId };
+    const roleName = await this.resolveRoleNameForJwt(user);
+    const payload = this.buildAccessTokenPayload(user, roleName);
 
     // access token (short lived)
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -360,7 +392,7 @@ export class AuthService {
     const tokenHash = hashToken(refreshRaw);
     const token = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
-      include: { user: true },
+      include: { user: { include: { role: true } } },
     });
 
     if (!token || token.revoked || token.expiresAt < new Date()) {
@@ -396,10 +428,12 @@ export class AuthService {
       },
     });
 
-    const accessToken = await this.jwtService.signAsync(
-      { sub: token.user.id, email: token.user.email, role: token.user.roleId },
-      { algorithm: 'RS256', expiresIn: process.env.JWT_EXPIRE_IN || '15m' },
-    );
+    const roleName = await this.resolveRoleNameForJwt(token.user);
+    const accessPayload = this.buildAccessTokenPayload(token.user, roleName);
+    const accessToken = await this.jwtService.signAsync(accessPayload, {
+      algorithm: 'RS256',
+      expiresIn: process.env.JWT_EXPIRE_IN || '15m',
+    });
 
     return { accessToken, refreshToken: newRaw, expiresAt };
   }
