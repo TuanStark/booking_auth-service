@@ -164,8 +164,13 @@ export class AuthController {
   }
 
   @Post('refresh')
-  async refresh(@Req() req, @Res() res) {
-    const refreshToken = req.cookies?.refresh_token;
+  async refresh(
+    @Req() req,
+    @Body() body: { refreshToken?: string },
+    @Res() res,
+  ) {
+    const refreshToken =
+      req.cookies?.refresh_token || body?.refreshToken;
     if (!refreshToken)
       return res.status(401).json({ message: 'No refresh token' });
 
@@ -176,7 +181,7 @@ export class AuthController {
         req.headers['user-agent'],
       );
     res.cookie('refresh_token', newRefresh, cookieOptions);
-    return res.json({ accessToken });
+    return res.json({ accessToken, refreshToken: newRefresh });
   }
 
   @Post('logout')

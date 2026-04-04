@@ -93,30 +93,48 @@ export class UserService {
     const take = limitNumber;
     const skip = (pageNumber - 1) * take;
 
-    const searchUpCase = search.charAt(0).toUpperCase() + search.slice(1);
-    const where = search
-      ? {
-          OR: [
-            { firstName: { contains: searchUpCase } },
-            { lastName: { contains: searchUpCase } },
-            { email: { contains: searchUpCase } },
-          ],
-        }
-      : {};
-    const orderBy = {
-      [sortBy]: sortOrder,
-    };
+    // --- Build WHERE clause ---
+    const conditions: any[] = [];
+
+    // Search: case-insensitive across name and email
+    if (search) {
+      conditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    // Filter by role name (e.g. 'student', 'admin')
+    const role = query.role;
+    if (role && role !== 'all') {
+      conditions.push({
+        role: { name: { equals: role.toUpperCase(), mode: 'insensitive' } },
+      });
+    }
+
+    // Filter by status (e.g. 'active', 'inactive')
+    const status = query.status;
+    if (status && status !== 'all') {
+      // Backend stores 'active' / 'unactive', frontend sends 'active' / 'inactive'
+      const dbStatus = status === 'inactive' ? 'unactive' : status;
+      conditions.push({ status: dbStatus });
+    }
+
+    const where = conditions.length > 0 ? { AND: conditions } : {};
+
+    const orderBy = { [sortBy]: sortOrder };
 
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
-        where: where,
-        orderBy: orderBy,
+        where,
+        orderBy,
         skip,
         take,
+        include: { role: true },
       }),
-      this.prisma.user.count({
-        where: where,
-      }),
+      this.prisma.user.count({ where }),
     ]);
 
     return {
