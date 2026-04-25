@@ -10,6 +10,7 @@ services:
       - "3001:3001"
     environment:
       PORT: 3001
+      INTERNAL_SECRET: ${INTERNAL_SECRET:-booking_internal_secret_change_me}
       DATABASE_URL: ${DATABASE_URL}
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}

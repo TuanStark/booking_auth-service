@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AuthModule } from './modules/auth/auth.module';
+import { AuditLogModule } from './modules/audit-log/audit-log.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { loadPrivateKey, loadPublicKey } from './config/jwt.config';
@@ -17,6 +18,7 @@ import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handleba
       signOptions: { algorithm: 'RS256' }, // default; per-sign overrides allowed
     }),
     AuthModule,
+    AuditLogModule,
   ],
   controllers: [AppController],
   providers: [PrismaService],
