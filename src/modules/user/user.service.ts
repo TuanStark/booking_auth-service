@@ -15,7 +15,8 @@ export class UserService {
 
   async create(createUserDto: CreateUserDto) {
     try {
-      const { password, roleId, email, ...userData } = createUserDto;
+      const { password, roleId, email: rawEmail, ...userData } = createUserDto;
+      const email = rawEmail.trim().toLowerCase();
 
       // Kiểm tra email đã tồn tại chưa
       const existingUser = await this.findByEmail(email);
@@ -233,9 +234,10 @@ export class UserService {
   }
 
   async findByEmail(email: string) {
-    return await this.prisma.user.findUnique({
+    const normalized = email.trim().toLowerCase();
+    return await this.prisma.user.findFirst({
       where: {
-        email,
+        email: { equals: normalized, mode: 'insensitive' },
       },
       include: {
         role: true,

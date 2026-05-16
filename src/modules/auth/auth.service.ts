@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
@@ -23,6 +24,8 @@ import { RabbitMQTopics } from '../../messaging/rabbitmq/rabbitmq.topic';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -33,10 +36,11 @@ export class AuthService {
   ) {}
 
   async register(dto: AuthDTO) {
-    const { email, password, name, studentId, phone } = dto;
+    const { password, name, studentId, phone } = dto;
+    const email = dto.email.trim().toLowerCase();
 
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
+    const existingUser = await this.prisma.user.findFirst({
+      where: { email: { equals: email, mode: 'insensitive' } },
     });
 
     if (existingUser) {
@@ -81,7 +85,10 @@ export class AuthService {
   }
 
   async login(loginDto: { email: string; password: string }, ip?: string, userAgent?: string) {
-    const user = await this.validateUser(loginDto.email, loginDto.password);
+    const user = await this.validateUser(
+      loginDto.email.trim().toLowerCase(),
+      loginDto.password,
+    );
     if (!user) {
       throw new ForbiddenException('Invalid credentials');
     }
@@ -169,7 +176,7 @@ export class AuthService {
     try {
       const user = await this.userService.findByEmail(email);
       if (!user) {
-        console.log('User not found:', email);
+        this.logger.debug('Login attempt rejected: no matching user');
         return null;
       }
 
@@ -222,12 +229,12 @@ export class AuthService {
   }
 
   async resendVerificationCode(userId: string, email: string) {
-    // Tìm user theo ID và email để đảm bảo an toàn
+    const emailNorm = email.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({
       where: {
         id: userId,
-        email: email,
-        status: 'unactive', // Chỉ cho phép gửi lại mã nếu chưa active
+        email: { equals: emailNorm, mode: 'insensitive' },
+        status: 'unactive',
       },
     });
 
