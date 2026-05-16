@@ -49,3 +49,31 @@ export class LoginDTO {
   @IsNotEmpty()
   password: string;
 }
+
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'Email không hợp lệ' })
+  @IsNotEmpty({ message: 'Email không được để trống' })
+  email: string;
+}
+
+export class ValidateResetTokenDto {
+  @IsString({ message: 'Token không hợp lệ' })
+  @IsNotEmpty({ message: 'Token không được để trống' })
+  @MinLength(32, { message: 'Token không hợp lệ' })
+  token: string;
+}
+
+export class ResetPasswordDto {
+  @IsString({ message: 'Token không hợp lệ' })
+  @IsNotEmpty({ message: 'Token không được để trống' })
+  @MinLength(32, { message: 'Token không hợp lệ' })
+  token: string;
+
+  @IsString({ message: 'Mật khẩu phải là chuỗi' })
+  @MinLength(8, { message: 'Mật khẩu phải dài ít nhất 8 ký tự' })
+  password: string;
+
+  @IsString()
+  @Match('password', { message: 'Xác nhận mật khẩu không khớp' })
+  confirmPassword: string;
+}

@@ -9,15 +9,8 @@ import * as amqp from 'amqp-connection-manager';
 import type { ChannelWrapper } from 'amqp-connection-manager';
 import type { ConfirmChannel } from 'amqplib';
 
-export interface CreateUserEventData {
-  id: string;
-  email: string;
-  password: string;
-  name: string;
-  roleId: string;
-  codeId: string;
-  codeExpired: Date;
-}
+/** Payload shapes published to user_exchange (topic = routing key). */
+export type UserExchangePayload = Record<string, unknown>;
 
 @Injectable()
 export class RabbitMQProducerService implements OnModuleInit, OnModuleDestroy {
@@ -56,17 +49,15 @@ export class RabbitMQProducerService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async publishMessage(pattern: string, data: CreateUserEventData): Promise<void> {
+  async publishMessage(pattern: string, data: UserExchangePayload): Promise<void> {
     try {
       if (!this.channelWrapper) {
         throw new Error('RabbitMQ channel is not available');
       }
 
       const payload = { pattern, data };
-      const sanitized = {
-        ...data,
-        password: '[REDACTED]',
-      };
+      const sanitized: Record<string, unknown> = { ...data };
+      if ('password' in sanitized) sanitized.password = '[REDACTED]';
       this.logger.log(
         `Publishing to ${pattern}: ${JSON.stringify(sanitized)}`,
       );

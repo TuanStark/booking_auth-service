@@ -10,9 +10,16 @@ import {
   Req,
   Res,
   UnauthorizedException,
+  ValidationPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthDTO, LoginDTO } from './dto';
+import {
+  AuthDTO,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  ValidateResetTokenDto,
+} from './dto';
 import { ResponseData } from '../../common/global/globalClass';
 import { HttpStatus, HttpMessage } from '../../common/global/globalEnum';
 import { LocalAuthGuard } from './guard';
@@ -121,6 +128,80 @@ export class AuthController {
         null,
         HttpStatus.SERVER_ERROR,
         'Có lỗi xảy ra khi gửi lại mã xác thực',
+      );
+    }
+  }
+
+  @Post('forgot-password')
+  @HttpCode(NestHttpStatus.OK)
+  async forgotPassword(
+    @Body(new ValidationPipe({ whitelist: true, transform: true }))
+    dto: ForgotPasswordDto,
+  ) {
+    try {
+      const result = await this.authService.requestPasswordReset(dto.email);
+      return new ResponseData(result, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
+    } catch (error) {
+      console.error('forgot-password:', error);
+      return new ResponseData(
+        null,
+        HttpStatus.SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('reset-password/validate')
+  @HttpCode(NestHttpStatus.OK)
+  async validateResetPasswordToken(
+    @Body(new ValidationPipe({ whitelist: true, transform: true }))
+    dto: ValidateResetTokenDto,
+  ) {
+    try {
+      const result = await this.authService.validatePasswordResetToken(
+        dto.token,
+      );
+      return new ResponseData(result, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
+    } catch (error) {
+      console.error('reset-password/validate:', error);
+      return new ResponseData(
+        null,
+        HttpStatus.SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('reset-password')
+  @HttpCode(NestHttpStatus.OK)
+  async resetPassword(
+    @Body(new ValidationPipe({ whitelist: true, transform: true }))
+    dto: ResetPasswordDto,
+  ) {
+    try {
+      const result = await this.authService.resetPasswordWithToken(
+        dto.token,
+        dto.password,
+      );
+      return new ResponseData(result, HttpStatus.SUCCESS, HttpMessage.SUCCESS);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        const msg =
+          typeof error.getResponse() === 'string'
+            ? error.getResponse()
+            : (error.getResponse() as { message?: string })?.message ??
+              error.message;
+        return new ResponseData(
+          null,
+          HttpStatus.VALIDATION_ERROR,
+          Array.isArray(msg) ? msg.join(', ') : String(msg),
+        );
+      }
+      console.error('reset-password:', error);
+      return new ResponseData(
+        null,
+        HttpStatus.SERVER_ERROR,
+        HttpMessage.SERVER_ERROR,
       );
     }
   }

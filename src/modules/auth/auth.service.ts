@@ -445,4 +445,115 @@ export class AuthService {
       data: { revoked: true },
     });
   }
+
+  /**
+   * Forgot password: không tiết lộ email có tồn tại hay không (generic message).
+   * Token chỉ lưu hash; link một lần; gửi email qua notification-service (RabbitMQ).
+   */
+  async requestPasswordReset(email: string): Promise<{ message: string }> {
+    const normalized = email.trim().toLowerCase();
+    const genericMessage =
+      'Nếu email tồn tại trong hệ thống, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.';
+
+    const user = await this.prisma.user.findFirst({
+      where: {
+        email: { equals: normalized, mode: 'insensitive' },
+      },
+    });
+
+    if (!user) {
+      return { message: genericMessage };
+    }
+
+    const ttlHours = Number(
+      this.config.get<string>('PASSWORD_RESET_EXPIRE_HOURS') ?? '1',
+    );
+    const expiresAt = dayjs().add(ttlHours, 'hour').toDate();
+
+    await this.prisma.passwordResetToken.updateMany({
+      where: { userId: user.id, usedAt: null },
+      data: { usedAt: new Date() },
+    });
+
+    const raw = randomBytes(32).toString('hex');
+    const tokenHash = hashToken(raw);
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const frontend =
+      this.config.get<string>('FRONTEND_URL') ??
+      process.env.FRONTEND_URL ??
+      'http://localhost:3000';
+    const base = frontend.replace(/\/$/, '');
+    const resetLink = `${base}/auth/reset-password?token=${encodeURIComponent(raw)}`;
+
+    await this.rabbitMQProducerService.publishMessage(
+      RabbitMQTopics.PASSWORD_RESET_REQUESTED,
+      {
+        id: user.id,
+        email: user.email,
+        name: user.name ?? '',
+        resetLink,
+        expiresAt: expiresAt.toISOString(),
+      },
+    );
+
+    return { message: genericMessage };
+  }
+
+  async validatePasswordResetToken(token: string): Promise<{ valid: boolean }> {
+    const tokenHash = hashToken(token);
+    const row = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      return { valid: false };
+    }
+    return { valid: true };
+  }
+
+  async resetPasswordWithToken(
+    token: string,
+    newPassword: string,
+  ): Promise<{ message: string }> {
+    const tokenHash = hashToken(token);
+    const row = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+
+    if (!row || row.usedAt || row.expiresAt < new Date()) {
+      throw new BadRequestException(
+        'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.',
+      );
+    }
+
+    const hash = await argon.hash(newPassword);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: row.userId },
+        data: { password: hash },
+      });
+      await tx.passwordResetToken.update({
+        where: { id: row.id },
+        data: { usedAt: new Date() },
+      });
+      await tx.passwordResetToken.updateMany({
+        where: { userId: row.userId, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await tx.refreshToken.updateMany({
+        where: { userId: row.userId, revoked: false },
+        data: { revoked: true },
+      });
+    });
+
+    return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.' };
+  }
 }
