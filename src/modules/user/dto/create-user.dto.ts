@@ -18,4 +18,19 @@ export class CreateUserDto {
 
   @IsOptional()
   password?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @IsOptional()
+  @IsString()
+  gender?: string;
+
+  @IsOptional()
+  dateOfBirth?: Date;
 }

@@ -234,7 +234,7 @@ export class AuthService {
       where: {
         id: userId,
         email: { equals: emailNorm, mode: 'insensitive' },
-        status: 'unactive',
+        status: { not: 'active' },
       },
     });
 
